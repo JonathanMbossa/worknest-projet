@@ -1,0 +1,121 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CLIENT
+  ENTERPRISE
+  ADMIN
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CARD
+  BANK_TRANSFER
+  PAYPAL
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  phone     String?
+  company   String?  // Pour les entreprises
+  role      UserRole @default(CLIENT)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reservations Reservation[]
+  payments     Payment[]
+
+  @@map("users")
+}
+
+model Space {
+  id          String   @id @default(uuid())
+  name        String
+  description String   @db.Text
+  capacity    Int
+  price       Float
+  location    String
+  address     String
+  city        String
+  postalCode  String
+  country     String   @default("France")
+  equipment   String[] // Tableau d'équipements (WiFi, Projecteur, etc.)
+  images      String[] // URLs des images
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  reservations Reservation[]
+
+  @@map("spaces")
+}
+
+model Reservation {
+  id          String           @id @default(uuid())
+  userId      String
+  spaceId     String
+  startDate   DateTime
+  endDate     DateTime
+  status      ReservationStatus @default(PENDING)
+  totalPrice  Float
+  notes       String?          @db.Text
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  space   Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  payment Payment?
+
+  @@index([userId])
+  @@index([spaceId])
+  @@index([startDate, endDate])
+  @@map("reservations")
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  reservationId String        @unique
+  userId        String
+  amount        Float
+  status        PaymentStatus @default(PENDING)
+  method        PaymentMethod
+  transactionId String?       // ID de transaction externe (Stripe, PayPal, etc.)
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("payments")
+}
+
