@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # Base de données PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: worknest-postgres
+    environment:
+      POSTGRES_USER: worknest
+      POSTGRES_PASSWORD: worknest_password
+      POSTGRES_DB: worknest
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U worknest"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - worknest-network
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.backend
+    container_name: worknest-backend
+    environment:
+      DATABASE_URL: postgresql://worknest:worknest_password@postgres:5432/worknest?schema=public
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      PORT: 3000
+      NODE_ENV: ${NODE_ENV:-development}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./prisma:/app/prisma
+      - ./package.json:/app/package.json
+      - /app/node_modules
+      - /app/prisma/node_modules
+    networks:
+      - worknest-network
+    command: npm run dev
+
+  # Frontend React
+  frontend:
+    build:
+      context: ./front
+      dockerfile: ../docker/Dockerfile.frontend
+    container_name: worknest-frontend
+    environment:
+      VITE_API_URL: http://localhost:3000/api
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    volumes:
+      - ./front:/app
+      - /app/node_modules
+    networks:
+      - worknest-network
+    command: npm run dev
+
+volumes:
+  postgres_data:
+
+networks:
+  worknest-network:
+    driver: bridge
+
