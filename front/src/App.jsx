@@ -8,6 +8,10 @@ import Reservation from './pages/Reservation'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
+import EditProfile from './pages/EditProfile'
+import AdminSpaces from './pages/AdminSpaces'
+import AdminReservations from './pages/AdminReservations'
+import AdminUsers from './pages/AdminUsers'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function AppRoutes() {
@@ -42,6 +46,38 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile/edit"
+            element={
+              <ProtectedRoute>
+                <EditProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/spaces"
+            element={
+              <ProtectedRoute>
+                <AdminSpaces />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/reservations"
+            element={
+              <ProtectedRoute>
+                <AdminReservations />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute>
+                <AdminUsers />
               </ProtectedRoute>
             }
           />

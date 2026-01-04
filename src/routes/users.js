@@ -95,6 +95,7 @@ router.get('/profile',
 router.put('/profile',
   authenticate,
   [
+    body('email').optional().isEmail().normalizeEmail(),
     body('firstName').optional().trim().notEmpty(),
     body('lastName').optional().trim().notEmpty(),
     body('phone').optional().isMobilePhone('fr-FR'),
@@ -103,11 +104,22 @@ router.put('/profile',
   validate,
   async (req, res) => {
     try {
-      const { firstName, lastName, phone, company } = req.body;
+      const { email, firstName, lastName, phone, company } = req.body;
+
+      // Si l'email est modifié, vérifier qu'il n'est pas déjà utilisé
+      if (email && email !== req.user.email) {
+        const existingUser = await prisma.user.findUnique({
+          where: { email }
+        });
+        if (existingUser) {
+          return res.status(409).json({ error: 'Cet email est déjà utilisé' });
+        }
+      }
 
       const user = await prisma.user.update({
         where: { id: req.user.id },
         data: {
+          ...(email && { email }),
           ...(firstName && { firstName }),
           ...(lastName && { lastName }),
           ...(phone !== undefined && { phone }),
@@ -221,10 +233,26 @@ router.get('/',
           email: true,
           firstName: true,
           lastName: true,
+          phone: true,
           company: true,
           role: true,
           isActive: true,
-          createdAt: true
+          createdAt: true,
+          updatedAt: true,
+          reservations: {
+            select: {
+              id: true,
+              status: true,
+              createdAt: true
+            }
+          },
+          payments: {
+            select: {
+              id: true,
+              status: true,
+              amount: true
+            }
+          }
         },
         orderBy: { createdAt: 'desc' }
       });
@@ -232,6 +260,55 @@ router.get('/',
       res.json({ users });
     } catch (error) {
       console.error('Erreur lors de la récupération des utilisateurs:', error);
+      res.status(500).json({ error: 'Erreur serveur' });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   delete:
+ *     summary: Supprimer un utilisateur (Admin uniquement)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Utilisateur supprimé
+ *       404:
+ *         description: Utilisateur non trouvé
+ */
+router.delete('/:id',
+  authenticate,
+  authorize('ADMIN'),
+  [param('id').isUUID()],
+  validate,
+  async (req, res) => {
+    try {
+      // Ne pas permettre de supprimer son propre compte
+      if (req.params.id === req.user.id) {
+        return res.status(400).json({ error: 'Vous ne pouvez pas supprimer votre propre compte' });
+      }
+
+      // Désactiver l'utilisateur au lieu de le supprimer (pour préserver l'historique)
+      await prisma.user.update({
+        where: { id: req.params.id },
+        data: { isActive: false }
+      });
+
+      res.json({ message: 'Utilisateur désactivé avec succès' });
+    } catch (error) {
+      if (error.code === 'P2025') {
+        return res.status(404).json({ error: 'Utilisateur non trouvé' });
+      }
+      console.error('Erreur lors de la suppression de l\'utilisateur:', error);
       res.status(500).json({ error: 'Erreur serveur' });
     }
   }

@@ -397,5 +397,165 @@ router.post('/:id/confirm',
   }
 );
 
+/**
+ * @swagger
+ * /api/reservations/{id}:
+ *   put:
+ *     summary: Modifier une réservation (Admin uniquement)
+ *     tags: [Reservations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               startDate:
+ *                 type: string
+ *                 format: date-time
+ *               endDate:
+ *                 type: string
+ *                 format: date-time
+ *               status:
+ *                 type: string
+ *                 enum: [PENDING, CONFIRMED, CANCELLED, COMPLETED]
+ *     responses:
+ *       200:
+ *         description: Réservation modifiée
+ */
+router.put('/:id',
+  authenticate,
+  authorize('ADMIN'),
+  [
+    param('id').isUUID(),
+    body('startDate').optional().isISO8601().toDate(),
+    body('endDate').optional().isISO8601().toDate(),
+    body('status').optional().isIn(['PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED'])
+  ],
+  validate,
+  async (req, res) => {
+    try {
+      const { startDate, endDate, status } = req.body;
+
+      // Vérifier que la réservation existe
+      const existingReservation = await prisma.reservation.findUnique({
+        where: { id: req.params.id }
+      });
+
+      if (!existingReservation) {
+        return res.status(404).json({ error: 'Réservation non trouvée' });
+      }
+
+      // Calculer le nouveau prix si les dates changent
+      let totalPrice = existingReservation.totalPrice;
+      if (startDate || endDate) {
+        const finalStartDate = startDate ? new Date(startDate) : new Date(existingReservation.startDate);
+        const finalEndDate = endDate ? new Date(endDate) : new Date(existingReservation.endDate);
+        
+        if (finalStartDate >= finalEndDate) {
+          return res.status(400).json({ error: 'La date de fin doit être après la date de début' });
+        }
+
+        const space = await prisma.space.findUnique({
+          where: { id: existingReservation.spaceId }
+        });
+
+        const hours = (finalEndDate - finalStartDate) / (1000 * 60 * 60);
+        totalPrice = space.price * hours;
+      }
+
+      const reservation = await prisma.reservation.update({
+        where: { id: req.params.id },
+        data: {
+          ...(startDate && { startDate: new Date(startDate) }),
+          ...(endDate && { endDate: new Date(endDate) }),
+          ...(status && { status }),
+          ...(totalPrice !== existingReservation.totalPrice && { totalPrice })
+        },
+        include: {
+          space: true,
+          user: true,
+          payment: true
+        }
+      });
+
+      res.json({
+        message: 'Réservation modifiée avec succès',
+        reservation
+      });
+    } catch (error) {
+      if (error.code === 'P2025') {
+        return res.status(404).json({ error: 'Réservation non trouvée' });
+      }
+      console.error('Erreur lors de la modification de la réservation:', error);
+      res.status(500).json({ error: 'Erreur serveur' });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/reservations/{id}:
+ *   delete:
+ *     summary: Supprimer une réservation (Admin uniquement)
+ *     tags: [Reservations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Réservation supprimée
+ */
+router.delete('/:id',
+  authenticate,
+  authorize('ADMIN'),
+  [param('id').isUUID()],
+  validate,
+  async (req, res) => {
+    try {
+      const reservation = await prisma.reservation.findUnique({
+        where: { id: req.params.id },
+        include: { payment: true }
+      });
+
+      if (!reservation) {
+        return res.status(404).json({ error: 'Réservation non trouvée' });
+      }
+
+      // Supprimer le paiement associé s'il existe
+      if (reservation.payment) {
+        await prisma.payment.delete({
+          where: { id: reservation.payment.id }
+        });
+      }
+
+      // Supprimer la réservation
+      await prisma.reservation.delete({
+        where: { id: req.params.id }
+      });
+
+      res.json({ message: 'Réservation supprimée avec succès' });
+    } catch (error) {
+      if (error.code === 'P2025') {
+        return res.status(404).json({ error: 'Réservation non trouvée' });
+      }
+      console.error('Erreur lors de la suppression de la réservation:', error);
+      res.status(500).json({ error: 'Erreur serveur' });
+    }
+  }
+);
+
 module.exports = router;
 

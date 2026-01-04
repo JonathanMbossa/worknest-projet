@@ -40,6 +40,9 @@ export const authAPI = {
 export const spacesAPI = {
   getAll: (params) => api.get('/spaces', { params }),
   getById: (id) => api.get(`/spaces/${id}`),
+  create: (data) => api.post('/spaces', data),
+  update: (id, data) => api.put(`/spaces/${id}`, data),
+  delete: (id) => api.delete(`/spaces/${id}`),
 }
 
 export const reservationsAPI = {
@@ -47,6 +50,9 @@ export const reservationsAPI = {
   getAll: (params) => api.get('/reservations', { params }),
   getById: (id) => api.get(`/reservations/${id}`),
   cancel: (id) => api.post(`/reservations/${id}/cancel`),
+  update: (id, data) => api.put(`/reservations/${id}`, data),
+  delete: (id) => api.delete(`/reservations/${id}`),
+  confirm: (id) => api.post(`/reservations/${id}/confirm`),
 }
 
 export const paymentsAPI = {
@@ -58,6 +64,8 @@ export const paymentsAPI = {
 export const usersAPI = {
   getProfile: () => api.get('/users/profile'),
   updateProfile: (data) => api.put('/users/profile', data),
+  getAll: () => api.get('/users'),
+  delete: (id) => api.delete(`/users/${id}`),
 }
 
 export default api

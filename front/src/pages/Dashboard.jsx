@@ -17,7 +17,10 @@ export default function Dashboard() {
 
   const { data: reservationsData, isLoading } = useQuery(
     'reservations',
-    () => reservationsAPI.getAll()
+    () => reservationsAPI.getAll(),
+    {
+      enabled: !!user
+    }
   )
 
   const cancelMutation = useMutation(
@@ -43,12 +46,32 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Tableau de bord</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Tableau de bord</h1>
+        {user?.role === 'ADMIN' && (
+          <div className="flex space-x-2">
+            <Link to="/admin/spaces" className="btn btn-primary">
+              Gérer les espaces
+            </Link>
+            <Link to="/admin/reservations" className="btn btn-primary">
+              Gérer les réservations
+            </Link>
+            <Link to="/admin/users" className="btn btn-primary">
+              Gérer les utilisateurs
+            </Link>
+          </div>
+        )}
+      </div>
 
       {/* Profil utilisateur */}
       {profileData?.user && (
         <div className="card">
-          <h2 className="text-xl font-semibold mb-4">Mon profil</h2>
+          <div className="flex justify-between items-start mb-4">
+            <h2 className="text-xl font-semibold">Mon profil</h2>
+            <Link to="/profile/edit" className="btn btn-secondary text-sm">
+              Modifier mon profil
+            </Link>
+          </div>
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-600">Nom complet</p>
