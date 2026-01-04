@@ -80,12 +80,19 @@ async function main() {
   ];
 
   for (const space of spaces) {
-    const created = await prisma.space.upsert({
-      where: { name: space.name },
-      update: {},
-      create: space,
+    // Vérifier si l'espace existe déjà
+    const existing = await prisma.space.findFirst({
+      where: { name: space.name }
     });
-    console.log(`✅ Espace créé: ${created.name}`);
+
+    if (existing) {
+      console.log(`⏭️  Espace déjà existant: ${space.name}`);
+    } else {
+      const created = await prisma.space.create({
+        data: space,
+      });
+      console.log(`✅ Espace créé: ${created.name}`);
+    }
   }
 
   console.log('🎉 Seeding terminé !');

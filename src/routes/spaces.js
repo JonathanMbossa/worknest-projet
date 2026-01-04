@@ -52,7 +52,18 @@ const router = express.Router();
  *       200:
  *         description: Liste des espaces
  */
+// Middleware pour nettoyer les paramètres de requête vides
+const cleanQueryParams = (req, res, next) => {
+  Object.keys(req.query).forEach(key => {
+    if (req.query[key] === '') {
+      delete req.query[key];
+    }
+  });
+  next();
+};
+
 router.get('/',
+  cleanQueryParams,
   [
     query('capacity').optional().isInt({ min: 1 }),
     query('minPrice').optional().isFloat({ min: 0 }),

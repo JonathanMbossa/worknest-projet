@@ -106,7 +106,12 @@ router.post('/register',
       });
     } catch (error) {
       console.error('Erreur lors de l\'inscription:', error);
-      res.status(500).json({ error: 'Erreur lors de l\'inscription' });
+      console.error('Stack:', error.stack);
+      res.status(500).json({ 
+        error: 'Erreur lors de l\'inscription',
+        message: error.message,
+        ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+      });
     }
   }
 );
@@ -180,7 +185,12 @@ router.post('/login',
       });
     } catch (error) {
       console.error('Erreur lors de la connexion:', error);
-      res.status(500).json({ error: 'Erreur lors de la connexion' });
+      console.error('Stack:', error.stack);
+      res.status(500).json({ 
+        error: 'Erreur lors de la connexion',
+        message: error.message,
+        ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+      });
     }
   }
 );
